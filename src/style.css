@@ -1283,11 +1283,12 @@ footer .badge {
 }
 .tools-layout {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-columns: 240px minmax(0, 1fr);
   height: min(640px, 76vh);
 }
 .tools-nav {
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 14px 12px;
   background: #f8faff;
   border-right: 1px solid #e2e8f0;

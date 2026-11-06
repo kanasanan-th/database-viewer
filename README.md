@@ -72,12 +72,12 @@ table orders {
 - `index [unique] NAME (field_a, field_b)` รองรับดัชนีคอลัมน์เดียวและหลายคอลัมน์
 - ใช้ `#` หรือ `//` สำหรับ comment เต็มบรรทัด
 
-| Engine | ตัวอย่างชนิดข้อมูล | ผลลัพธ์ |
-| --- | --- | --- |
-| PostgreSQL | bigint, numeric(12,2), uuid, jsonb, text[], timestamptz, bytea | `.sql` สำหรับ `psql` เริ่มจาก maintenance database เช่น `psql -d postgres -v ON_ERROR_STOP=1 -f commerce.sql` |
-| MySQL | bigint, varchar(255), decimal(12,2), json, datetime, varbinary(32) | `.sql` พร้อม CREATE DATABASE และ USE |
-| SQLite | integer, text, numeric, real, blob | `.sql` สำหรับไฟล์ฐานข้อมูล SQLite ที่เลือก พร้อมเปิด foreign keys ใน session ที่รันสคริปต์ |
-| MongoDB | objectId, string, bool, int, long, decimal, date, object, array, binData | `.js` สำหรับ `mongosh --file commerce.js` พร้อม collection, BSON validator และ index |
+| Engine     | ตัวอย่างชนิดข้อมูล                                                       | ผลลัพธ์                                                                                                       |
+| ---------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL | bigint, numeric(12,2), uuid, jsonb, text[], timestamptz, bytea           | `.sql` สำหรับ `psql` เริ่มจาก maintenance database เช่น `psql -d postgres -v ON_ERROR_STOP=1 -f commerce.sql` |
+| MySQL      | bigint, varchar(255), decimal(12,2), json, datetime, varbinary(32)       | `.sql` พร้อม CREATE DATABASE และ USE                                                                          |
+| SQLite     | integer, text, numeric, real, blob                                       | `.sql` สำหรับไฟล์ฐานข้อมูล SQLite ที่เลือก พร้อมเปิด foreign keys ใน session ที่รันสคริปต์                    |
+| MongoDB    | objectId, string, bool, int, long, decimal, date, object, array, binData | `.js` สำหรับ `mongosh --file commerce.js` พร้อม collection, BSON validator และ index                          |
 
 สำหรับ MongoDB ใช้ `collection` แทน `table` เช่น
 
@@ -93,7 +93,6 @@ collection orders {
 
 MongoDB ใช้ `_id` เป็น primary key โดยอัตโนมัติ ส่วน `ref` ใช้วาดความสัมพันธ์ใน ERD ตัว export มุ่งสร้างฐานข้อมูลหรือ schema ใหม่จาก draft การรองรับชนิดข้อมูลเป็นไปตามรายการของแต่ละ engine และตัวฐานข้อมูลเป็นผู้ตรวจข้อจำกัดเฉพาะ เช่น ขนาด index, type compatibility ของ foreign key และความเข้ากันได้ของค่า default
 
-
 ### Syntax hints และ charset ของ MySQL
 
 เลือก Engine จากเมนูด้านบนก่อนพิมพ์หรือ Export ใช้ **Syntax hints** หรือกด `Ctrl+Space` ใน Source เพื่อเปิดคำแนะนำ ณ ตำแหน่งเคอร์เซอร์ รายการจะแสดงขณะพิมพ์ด้วย ใช้ลูกศรเลือกแล้วกด Tab หรือ Enter เพื่อแทรก หรือคลิกคำแนะนำโดยตรง เปิด **?** เพื่อดูรายชื่อชนิดข้อมูลที่แอปรองรับสำหรับ Engine นั้น
@@ -104,18 +103,20 @@ MongoDB ใช้ `_id` เป็น primary key โดยอัตโนมั�
 database commerce charset utf8mb4 collate utf8mb4_0900_ai_ci
 ```
 
-| Charset | Collation ที่แอปรองรับ |
-| --- | --- |
+| Charset   | Collation ที่แอปรองรับ                                                                                |
+| --------- | ----------------------------------------------------------------------------------------------------- |
 | `utf8mb4` | `utf8mb4_0900_ai_ci`, `utf8mb4_0900_as_cs`, `utf8mb4_unicode_ci`, `utf8mb4_general_ci`, `utf8mb4_bin` |
-| `latin1` | `latin1_swedish_ci`, `latin1_general_ci`, `latin1_bin` |
-| `ascii` | `ascii_general_ci`, `ascii_bin` |
-| `tis620` | `tis620_thai_ci`, `tis620_bin` |
+| `latin1`  | `latin1_swedish_ci`, `latin1_general_ci`, `latin1_bin`                                                |
+| `ascii`   | `ascii_general_ci`, `ascii_bin`                                                                       |
+| `tis620`  | `tis620_thai_ci`, `tis620_bin`                                                                        |
 
 ถ้าใส่เฉพาะ charset เซิร์ฟเวอร์จะเลือก collation เริ่มต้นของ charset นั้น ถ้าใช้เพียง `database commerce` เซิร์ฟเวอร์จะใช้ค่าเริ่มต้นของเซิร์ฟเวอร์ Collation ที่มี `0900` ต้องใช้ MySQL 8.0 ขึ้นไป
 
 ## เชื่อม AI Agent ผ่าน MCP
 
-ใน Electron เปิด **MCP setup → Start MCP connection** เพื่อเปิด endpoint แบบ Streamable HTTP บนเครื่องนี้ จากนั้นนำค่า Codex ที่แอปแสดงไปตั้งค่าใน client ใช้ **Close MCP connection** เพื่อหยุด endpoint และตัดการเชื่อมต่อ เมื่อ Start อีกครั้งให้ใช้ URL และ token ชุดใหม่
+ใน Electron เปิด **MCP setup → Start MCP connection** เพื่อเปิด endpoint แบบ Streamable HTTP บนเครื่องนี้ แล้วเลือก client (Claude Code, Codex, Gemini CLI) จากนั้นกด **Copy command** (Claude Code / Gemini CLI รันในเทอร์มินัลได้ทันที), **Copy configuration** (Codex ใส่ใน `config.toml`), หรือ **Copy URL** / **Copy token** แยกกัน หน้าจอซ่อน token ไว้ (กด **Show token** เพื่อดู) แต่ปุ่ม Copy ใช้ค่าเต็มเสมอ ใช้ **Close MCP connection** เพื่อหยุด endpoint และตัดการเชื่อมต่อ เมื่อ Start อีกครั้งให้ใช้ URL และ token ชุดใหม่
+
+เมื่อ Agent เชื่อมต่อ อ่าน draft หรือส่งข้อเสนอเข้ามา แอปจะแสดงแจ้งเตือนมุมล่างขวาและบันทึกใน **Agent activity** ถ้าเป็นข้อเสนอที่ต้องตรวจ จะมีปุ่ม **Review**, ตัวเลขบนปุ่ม **Schema tools** และแจ้งเตือนจากระบบปฏิบัติการเมื่อแอปไม่ได้อยู่หน้าจอ
 
 สำหรับ stdio ให้เปิด **Independent stdio configuration** ในแอปเพื่อดู path ของโปรเจกต์ MCP client จะเป็นผู้เปิดและปิดโปรเซส stdio เอง
 

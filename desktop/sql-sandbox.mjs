@@ -18,11 +18,15 @@ function formatValue(value) {
 function runQuery({ draft, query }) {
   const db = new DatabaseSync(':memory:', { allowExtension: false });
   try {
-    if (typeof db.setAuthorizer !== 'function') throw new Error('This Electron runtime lacks SQLite query authorization.');
+    if (typeof db.setAuthorizer !== 'function')
+      throw new Error('This Electron runtime lacks SQLite query authorization.');
     db.exec('PRAGMA hard_heap_limit = 33554432; PRAGMA temp_store = MEMORY; PRAGMA trusted_schema = OFF;');
     const { source, preview } = JSON.parse(draft);
-    try { db.exec(compile(source, 'sqlite', preview).script); }
-    catch (error) { throw new Error('Could not load the draft: ' + error.message); }
+    try {
+      db.exec(compile(source, 'sqlite', preview).script);
+    } catch (error) {
+      throw new Error('Could not load the draft: ' + error.message);
+    }
     db.exec('PRAGMA query_only = ON;');
     if (db.limits) {
       db.limits.length = 2_000_000;
@@ -31,8 +35,11 @@ function runQuery({ draft, query }) {
 
     let denied = false;
     db.setAuthorizer((action, _arg1, arg2) => {
-      if (readActions.has(action) ||
-          action === constants.SQLITE_FUNCTION && !unsafeFunctions.has(arg2?.toLowerCase())) return constants.SQLITE_OK;
+      if (
+        readActions.has(action) ||
+        (action === constants.SQLITE_FUNCTION && !unsafeFunctions.has(arg2?.toLowerCase()))
+      )
+        return constants.SQLITE_OK;
       denied = true;
       return constants.SQLITE_DENY;
     });
@@ -62,6 +69,9 @@ function runQuery({ draft, query }) {
 }
 
 process.parentPort.once('message', ({ data }) => {
-  try { process.parentPort.postMessage({ result: runQuery(data) }); }
-  catch (error) { process.parentPort.postMessage({ error: error.message }); }
+  try {
+    process.parentPort.postMessage({ result: runQuery(data) });
+  } catch (error) {
+    process.parentPort.postMessage({ error: error.message });
+  }
 });

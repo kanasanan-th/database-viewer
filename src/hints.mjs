@@ -6,11 +6,20 @@ export function getHints(source, cursor, dialect) {
   const token = before.match(/[a-z_0-9]*$/i)[0];
   const start = cursor - token.length;
   const end = cursor + source.slice(cursor).match(/^[a-z_0-9]*/i)[0].length;
-  const words = before.slice(0, before.length - token.length).trim().split(/\s+/).filter(Boolean);
+  const words = before
+    .slice(0, before.length - token.length)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
   const mongo = dialect === 'mongodb';
   const entityKeyword = mongo ? 'collection' : 'table';
-  const context = source.slice(0, lineStart).split('\n').map(line => line.trim());
-  const previousBoundary = context.findLast(line => line === '}' || new RegExp('^' + entityKeyword + '\\s+\\w+\\s+\\{$').test(line));
+  const context = source
+    .slice(0, lineStart)
+    .split('\n')
+    .map(line => line.trim());
+  const previousBoundary = context.findLast(
+    line => line === '}' || new RegExp('^' + entityKeyword + '\\s+\\w+\\s+\\{$').test(line)
+  );
   const inside = Boolean(previousBoundary && previousBoundary !== '}');
   let options = [];
 
@@ -35,10 +44,19 @@ export function getHints(source, cursor, dialect) {
       options = ['cascade', 'restrict', 'set_null', 'no_action'];
     } else if (inside && !mongo && words.at(-1) === 'default') {
       options = ['now', 'true', 'false', 'null'];
-    } else if (inside && /^[a-z]+(?:\(\d+(?:,\d+)?\))?(?:\[\])?$/i.test(words[1] ?? '') &&
-               !['index', 'primary'].includes(words[0]) && words.at(-1) !== 'ref') {
-      options = ['pk', 'required', 'unique', 'ref', ...(mongo ? [] : ['default', ...(words.includes('ref') ? ['ondelete'] : [])])]
-        .filter(option => !words.slice(2).includes(option) && (option !== 'pk' || !mongo || words[0] === '_id'));
+    } else if (
+      inside &&
+      /^[a-z]+(?:\(\d+(?:,\d+)?\))?(?:\[\])?$/i.test(words[1] ?? '') &&
+      !['index', 'primary'].includes(words[0]) &&
+      words.at(-1) !== 'ref'
+    ) {
+      options = [
+        'pk',
+        'required',
+        'unique',
+        'ref',
+        ...(mongo ? [] : ['default', ...(words.includes('ref') ? ['ondelete'] : [])]),
+      ].filter(option => !words.slice(2).includes(option) && (option !== 'pk' || !mongo || words[0] === '_id'));
     }
   }
   return { start, end, items: options.filter(option => option.toLowerCase().startsWith(token.toLowerCase())) };

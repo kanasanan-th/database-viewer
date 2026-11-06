@@ -13,29 +13,65 @@ function raw(field, dialect, row, unique) {
   const mongo = dialect === 'mongodb';
   if (declaration.endsWith('[]')) return '[]';
   switch (type) {
-    case 'tinyint': case 'smallint': case 'mediumint': case 'integer': case 'int': case 'bigint': case 'serial': case 'bigserial': case 'long':
+    case 'tinyint':
+    case 'smallint':
+    case 'mediumint':
+    case 'integer':
+    case 'int':
+    case 'bigint':
+    case 'serial':
+    case 'bigserial':
+    case 'long':
       return String(n);
-    case 'decimal': case 'numeric': return scale ? n * 10 + '.' + '5'.padEnd(scale, '0').slice(0, scale) : String(n * 10);
-    case 'real': case 'float': case 'double': return n * 10 + '.5';
-    case 'boolean': case 'bool': return row % 2 === 0 ? 'true' : 'false';
-    case 'date': return mongo ? '2026-01-' + pad(row % 28 + 1) + 'T00:00:00Z' : '2026-01-' + pad(row % 28 + 1);
-    case 'time': return '09:' + pad(row % 60) + ':00';
-    case 'timestamp': return mongo ? JSON.stringify({ t: 1767225600 + row * 3600, i: 1 }) : '2026-01-' + pad(row % 28 + 1) + ' 09:00:00';
-    case 'datetime': return '2026-01-' + pad(row % 28 + 1) + ' 09:00:00';
-    case 'timestamptz': return '2026-01-' + pad(row % 28 + 1) + 'T09:00:00Z';
-    case 'json': case 'jsonb': case 'object': return '{}';
-    case 'array': return '[]';
-    case 'uuid': return '00000000-0000-4000-8000-' + pad(n, 12);
-    case 'objectid': return pad(n, 24);
-    case 'blob': case 'bytea': case 'binary': case 'varbinary': return pad(n.toString(16), 2);
-    case 'bindata': return 'AAEC';
-    case 'inet': return '10.0.0.' + (n % 250 + 1);
-    case 'interval': return 'P' + n + 'D';
+    case 'decimal':
+    case 'numeric':
+      return scale ? n * 10 + '.' + '5'.padEnd(scale, '0').slice(0, scale) : String(n * 10);
+    case 'real':
+    case 'float':
+    case 'double':
+      return n * 10 + '.5';
+    case 'boolean':
+    case 'bool':
+      return row % 2 === 0 ? 'true' : 'false';
+    case 'date':
+      return mongo ? '2026-01-' + pad((row % 28) + 1) + 'T00:00:00Z' : '2026-01-' + pad((row % 28) + 1);
+    case 'time':
+      return '09:' + pad(row % 60) + ':00';
+    case 'timestamp':
+      return mongo
+        ? JSON.stringify({ t: 1767225600 + row * 3600, i: 1 })
+        : '2026-01-' + pad((row % 28) + 1) + ' 09:00:00';
+    case 'datetime':
+      return '2026-01-' + pad((row % 28) + 1) + ' 09:00:00';
+    case 'timestamptz':
+      return '2026-01-' + pad((row % 28) + 1) + 'T09:00:00Z';
+    case 'json':
+    case 'jsonb':
+    case 'object':
+      return '{}';
+    case 'array':
+      return '[]';
+    case 'uuid':
+      return '00000000-0000-4000-8000-' + pad(n, 12);
+    case 'objectid':
+      return pad(n, 24);
+    case 'blob':
+    case 'bytea':
+    case 'binary':
+    case 'varbinary':
+      return pad(n.toString(16), 2);
+    case 'bindata':
+      return 'AAEC';
+    case 'inet':
+      return '10.0.0.' + ((n % 250) + 1);
+    case 'interval':
+      return 'P' + n + 'D';
     default: {
       const name = field.name.toLowerCase();
       let text;
       if (/e?mail/.test(name)) text = 'user' + n + '@example.test';
-      else if (/(^|_)name$|^name/.test(name)) text = firstNames[row % firstNames.length] + (unique && row >= firstNames.length ? ' ' + n : '');
+      else if (/(^|_)name$|^name/.test(name))
+        text = firstNames[row % firstNames.length] + (unique && row >= firstNames.length ? ' ' + n : '');
       else if (/status|state/.test(name)) text = ['new', 'active', 'done'][row % 3];
       else if (/phone/.test(name)) text = '08' + pad(n, 8);
       else if (/title|subject/.test(name)) text = 'Sample ' + name + ' ' + n;
@@ -55,12 +91,23 @@ export function generateSampleRows(schema, dialect, count = 5) {
       const parent = target.fields.find(item => item.name === field.ref.field);
       return value(target, parent, row % count);
     }
-    const unique = field.unique || entity.primary.includes(field.name) && entity.primary.length === 1 ||
+    const unique =
+      field.unique ||
+      (entity.primary.includes(field.name) && entity.primary.length === 1) ||
       entity.indexes.some(index => index.unique && index.columns.length === 1 && index.columns[0] === field.name);
-    if (!unique && field.default?.kind === 'literal' && typeof field.default.value !== 'object' && field.default.value !== null) return String(field.default.value);
+    if (
+      !unique &&
+      field.default?.kind === 'literal' &&
+      typeof field.default.value !== 'object' &&
+      field.default.value !== null
+    )
+      return String(field.default.value);
     const result = raw(field, dialect, row, unique);
     const message = validatePreviewValue(field.type, result, dialect, true);
-    if (message) throw new Error('Cannot generate a sample for ' + entity.name + '.' + field.name + ' (' + field.type + '): ' + message);
+    if (message)
+      throw new Error(
+        'Cannot generate a sample for ' + entity.name + '.' + field.name + ' (' + field.type + '): ' + message
+      );
     return result;
   }
   for (const entity of schema.entities) {

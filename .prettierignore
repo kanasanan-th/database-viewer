@@ -1,0 +1,8 @@
+node_modules/
+dist/
+video/
+video-vertical/
+.agents/
+.claude/
+package-lock.json
+skills-lock.json

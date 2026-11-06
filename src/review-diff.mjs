@@ -22,9 +22,10 @@ export function reviewDiff(before, after) {
     for (let i = height - 2; i >= 0; i--) {
       for (let j = width - 2; j >= 0; j--) {
         const offset = i * width + j;
-        lengths[offset] = before[startLeft + i] === after[startRight + j]
-          ? 1 + lengths[offset + width + 1]
-          : Math.max(lengths[offset + width], lengths[offset + 1]);
+        lengths[offset] =
+          before[startLeft + i] === after[startRight + j]
+            ? 1 + lengths[offset + width + 1]
+            : Math.max(lengths[offset + width], lengths[offset + 1]);
       }
     }
     while (left < endLeft && right < endRight) {
@@ -41,5 +42,5 @@ export function reviewDiff(before, after) {
 }
 
 export const sourceLines = source => source.replace(/\r\n/g, '\n').split('\n');
-export const seedLines = rows => rows.map(row =>
-  JSON.stringify(Object.fromEntries(Object.entries(row).sort(([a], [b]) => a.localeCompare(b)))));
+export const seedLines = rows =>
+  rows.map(row => JSON.stringify(Object.fromEntries(Object.entries(row).sort(([a], [b]) => a.localeCompare(b)))));

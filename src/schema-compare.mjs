@@ -9,7 +9,7 @@ const fieldSignature = (field, entity) => ({
   unique: Boolean(field.unique),
   default: field.default,
   reference: field.ref,
-  onDelete: field.ref ? field.ondelete ?? 'NO ACTION' : undefined,
+  onDelete: field.ref ? (field.ondelete ?? 'NO ACTION') : undefined,
 });
 const indexSignature = ({ unique, columns }) => ({ unique, columns });
 
@@ -40,7 +40,8 @@ export function compareSchemas(before, after, dialect, { allowDestructive = fals
     }
     phase[where].push(...[].concat(statements));
   }
-  const indexed = (table, column) => table.indexes.some(index => index.columns.includes(column)) || table.primary.includes(column);
+  const indexed = (table, column) =>
+    table.indexes.some(index => index.columns.includes(column)) || table.primary.includes(column);
   const typeOf = field => sqlColumn({ name: 'x', type: field.type }, { primary: [] }, dialect).replace(/^\S+ /, '');
   const defaultClause = field => {
     const text = sqlColumn(field, { primary: [] }, dialect);
@@ -52,7 +53,11 @@ export function compareSchemas(before, after, dialect, { allowDestructive = fals
   if (!same(base.databaseOptions, next.databaseOptions)) manual('Change database charset or collation');
   const removed = base.entities.filter(table => !newTables.has(table.name));
   // Tables that point at other removed tables are dropped first.
-  removed.sort((a, b) => Number(b.fields.some(field => field.ref?.entity === a.name)) - Number(a.fields.some(field => field.ref?.entity === b.name)));
+  removed.sort(
+    (a, b) =>
+      Number(b.fields.some(field => field.ref?.entity === a.name)) -
+      Number(a.fields.some(field => field.ref?.entity === b.name))
+  );
   for (const table of removed) {
     if (dialect === 'mongodb') manual('Remove ' + table.name);
     else step('Remove ' + table.name, 'dropTable', 'DROP TABLE ' + id(table.name) + ';', true);
@@ -72,8 +77,11 @@ export function compareSchemas(before, after, dialect, { allowDestructive = fals
     for (const field of old.fields) {
       if (newFields.has(field.name)) continue;
       const label = 'Remove column ' + table.name + '.' + field.name;
-      const needsManual = dialect === 'mongodb' || dialect === 'sqlite' && (field.unique || field.ref || indexed(old, field.name)) ||
-        mysql && field.ref || old.primary.includes(field.name);
+      const needsManual =
+        dialect === 'mongodb' ||
+        (dialect === 'sqlite' && (field.unique || field.ref || indexed(old, field.name))) ||
+        (mysql && field.ref) ||
+        old.primary.includes(field.name);
       if (needsManual) manual(label);
       else step(label, 'dropColumn', 'ALTER TABLE ' + id(table.name) + ' DROP COLUMN ' + id(field.name) + ';', true);
     }
@@ -88,7 +96,12 @@ export function compareSchemas(before, after, dialect, { allowDestructive = fals
         const summary = 'Change ' + label + ' (' + changed.join(', ') + ')';
         const tableName = id(table.name);
         const column = id(field.name);
-        if (changed.includes('reference') || changed.includes('onDelete') || dialect === 'sqlite' || dialect === 'mongodb') {
+        if (
+          changed.includes('reference') ||
+          changed.includes('onDelete') ||
+          dialect === 'sqlite' ||
+          dialect === 'mongodb'
+        ) {
           manual(summary);
           continue;
         }
@@ -96,31 +109,83 @@ export function compareSchemas(before, after, dialect, { allowDestructive = fals
           manual(summary + ' (removing a unique constraint needs a manual migration)');
           continue;
         }
-        const dangerous = changed.some(key => key === 'type' || key === 'unique') || changed.includes('required') && afterField.required;
+        const dangerous =
+          changed.some(key => key === 'type' || key === 'unique') ||
+          (changed.includes('required') && afterField.required);
         const statements = [];
         if (pg) {
           const type = typeOf(field);
-          if (changed.includes('type')) statements.push('ALTER TABLE ' + tableName + ' ALTER COLUMN ' + column + ' TYPE ' + type + ' USING ' + column + '::' + type + ';');
-          if (changed.includes('required')) statements.push('ALTER TABLE ' + tableName + ' ALTER COLUMN ' + column + (afterField.required ? ' SET NOT NULL;' : ' DROP NOT NULL;'));
-          if (changed.includes('default')) statements.push('ALTER TABLE ' + tableName + ' ALTER COLUMN ' + column + (field.default ? ' SET DEFAULT ' + defaultClause(field) + ';' : ' DROP DEFAULT;'));
+          if (changed.includes('type'))
+            statements.push(
+              'ALTER TABLE ' +
+                tableName +
+                ' ALTER COLUMN ' +
+                column +
+                ' TYPE ' +
+                type +
+                ' USING ' +
+                column +
+                '::' +
+                type +
+                ';'
+            );
+          if (changed.includes('required'))
+            statements.push(
+              'ALTER TABLE ' +
+                tableName +
+                ' ALTER COLUMN ' +
+                column +
+                (afterField.required ? ' SET NOT NULL;' : ' DROP NOT NULL;')
+            );
+          if (changed.includes('default'))
+            statements.push(
+              'ALTER TABLE ' +
+                tableName +
+                ' ALTER COLUMN ' +
+                column +
+                (field.default ? ' SET DEFAULT ' + defaultClause(field) + ';' : ' DROP DEFAULT;')
+            );
         } else {
-          statements.push('ALTER TABLE ' + tableName + ' MODIFY COLUMN ' + sqlColumn({ ...field, unique: false }, table, dialect) + ';');
+          statements.push(
+            'ALTER TABLE ' +
+              tableName +
+              ' MODIFY COLUMN ' +
+              sqlColumn({ ...field, unique: false }, table, dialect) +
+              ';'
+          );
         }
         if (changed.includes('unique')) statements.push('ALTER TABLE ' + tableName + ' ADD UNIQUE (' + column + ');');
         step(summary, 'alter', statements, dangerous);
         continue;
       }
       const required = field.required || table.primary.includes(field.name);
-      if (field.ref || required && !field.default || table.primary.includes(field.name) ||
-          dialect === 'sqlite' && (field.unique || field.default?.kind === 'now')) {
+      if (
+        field.ref ||
+        (required && !field.default) ||
+        table.primary.includes(field.name) ||
+        (dialect === 'sqlite' && (field.unique || field.default?.kind === 'now'))
+      ) {
         manual('Add column ' + label + ' with a constraint or default that needs a manual migration');
       } else {
-        step('Add column ' + label, 'addColumn', 'ALTER TABLE ' + id(table.name) + ' ADD COLUMN ' + sqlColumn(field, table, dialect) + ';');
+        step(
+          'Add column ' + label,
+          'addColumn',
+          'ALTER TABLE ' + id(table.name) + ' ADD COLUMN ' + sqlColumn(field, table, dialect) + ';'
+        );
       }
     }
-    const dropIndex = index => mysql ? 'DROP INDEX ' + id(index.name) + ' ON ' + id(table.name) + ';' : 'DROP INDEX ' + id(index.name) + ';';
-    const createIndex = index => 'CREATE ' + (index.unique ? 'UNIQUE ' : '') + 'INDEX ' + id(index.name) +
-      ' ON ' + id(table.name) + ' (' + index.columns.map(id).join(', ') + ');';
+    const dropIndex = index =>
+      mysql ? 'DROP INDEX ' + id(index.name) + ' ON ' + id(table.name) + ';' : 'DROP INDEX ' + id(index.name) + ';';
+    const createIndex = index =>
+      'CREATE ' +
+      (index.unique ? 'UNIQUE ' : '') +
+      'INDEX ' +
+      id(index.name) +
+      ' ON ' +
+      id(table.name) +
+      ' (' +
+      index.columns.map(id).join(', ') +
+      ');';
     for (const index of old.indexes) {
       if (newIndexes.has(index.name)) continue;
       if (dialect === 'mongodb') manual('Remove index ' + table.name + '.' + index.name);
@@ -141,16 +206,30 @@ export function compareSchemas(before, after, dialect, { allowDestructive = fals
       }
     }
   }
-  if (dialect === 'mongodb' && changes.length) blocked.push('Automatic migration scripts are available for SQL engines.');
-  const script = changes.length && !blocked.length ? [
-    '-- Migration for ' + next.database + '. Run on the database that matches the base draft.',
-    ...(risky.length ? ['-- WARNING: this script changes or removes data (' + risky.join('; ') + '). Back up first.'] : []),
-    ...(dialect === 'sqlite' ? ['PRAGMA foreign_keys = ON;', 'BEGIN;'] : pg ? ['BEGIN;'] : ['USE ' + id(next.database) + ';']),
-    ...phase.dropIndex, ...phase.dropColumn, ...phase.alter, ...phase.addColumn,
-    ...(newEntities.length ? [sqlStatements({ ...next, entities: newEntities }, dialect, false).trimEnd()] : []),
-    ...phase.createIndex, ...phase.dropTable,
-    ...(mysql ? [] : ['COMMIT;']),
-  ].join('\n') + '\n' : '';
+  if (dialect === 'mongodb' && changes.length)
+    blocked.push('Automatic migration scripts are available for SQL engines.');
+  const script =
+    changes.length && !blocked.length
+      ? [
+          '-- Migration for ' + next.database + '. Run on the database that matches the base draft.',
+          ...(risky.length
+            ? ['-- WARNING: this script changes or removes data (' + risky.join('; ') + '). Back up first.']
+            : []),
+          ...(dialect === 'sqlite'
+            ? ['PRAGMA foreign_keys = ON;', 'BEGIN;']
+            : pg
+              ? ['BEGIN;']
+              : ['USE ' + id(next.database) + ';']),
+          ...phase.dropIndex,
+          ...phase.dropColumn,
+          ...phase.alter,
+          ...phase.addColumn,
+          ...(newEntities.length ? [sqlStatements({ ...next, entities: newEntities }, dialect, false).trimEnd()] : []),
+          ...phase.createIndex,
+          ...phase.dropTable,
+          ...(mysql ? [] : ['COMMIT;']),
+        ].join('\n') + '\n'
+      : '';
   return { changes, blocked, risky, script };
 }
 

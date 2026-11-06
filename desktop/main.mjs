@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, dialog, ipcMain, utilityProcess } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Notification, utilityProcess } from 'electron';
 import { readFile, writeFile, stat } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { compile } from '../src/schema.mjs';
@@ -6,23 +6,31 @@ import { exportPrisma } from '../src/prisma-export.mjs';
 import { maxDraftBytes, serializeDraft, validateDraft } from '../src/draft.mjs';
 import { exportDbml } from '../src/dbml.mjs';
 import { createMcpConnection } from './mcp-connection.mjs';
-import { httpConfig, stdioConfig } from '../src/mcp-config.mjs';
+import { copyText, stdioConfig } from '../src/mcp-config.mjs';
 
 const page = fileURLToPath(new URL('../dist/index.html', import.meta.url));
 
 function createWindow() {
   const window = new BrowserWindow({
     title: 'Schema Studio',
-    width: 1440, height: 900, minWidth: 780, minHeight: 620,
+    width: 1440,
+    height: 900,
+    minWidth: 780,
+    minHeight: 620,
     backgroundColor: '#f7f9f9',
     webPreferences: {
       preload: fileURLToPath(new URL('./preload.cjs', import.meta.url)),
-      contextIsolation: true, sandbox: true, nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
     },
   });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
+  window.webContents.on('will-redirect', event => event.preventDefault());
+  window.webContents.on('will-attach-webview', event => event.preventDefault());
   window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  window.webContents.session.setPermissionCheckHandler(() => false);
   window.on('closed', () => mcpConnection.setActiveDraft(null));
   window.webContents.on('render-process-gone', () => mcpConnection.setActiveDraft(null));
   void window.loadFile(page);
@@ -80,39 +88,67 @@ handle('script:export', (window, source, dialect, preview, format) => {
   const { schema, script, extension } = compileExport(source, dialect, preview, format);
   if (format === 'prisma') return save(window, 'schema.prisma', extension, script);
   if (format === 'dbml') return save(window, schema.database + '.dbml', extension, script);
-  return save(window, schema.database + (preview === undefined ? '' : '_with_data') + '.' + extension, extension, script);
+  return save(
+    window,
+    schema.database + (preview === undefined ? '' : '_with_data') + '.' + extension,
+    extension,
+    script
+  );
 });
 
 handle('script:copy', (_window, source, dialect, preview, format) => {
   clipboard.writeText(compileExport(source, dialect, preview, format).script);
 });
 
+handle('clipboard:copy', (_window, text) => {
+  if (typeof text !== 'string' || Buffer.byteLength(text) > 8_000_000) throw new Error('Nothing to copy.');
+  clipboard.writeText(text);
+});
+
 handle('script:save-reviewed', (window, name, text) => {
   const extension = typeof name === 'string' && name.match(/^[a-z_]\w{0,80}\.(sql|js|svg)$/i)?.[1];
-  if (!extension || typeof text !== 'string' || Buffer.byteLength(text) > 8_000_000) throw new Error('Invalid script file.');
+  if (!extension || typeof text !== 'string' || Buffer.byteLength(text) > 8_000_000)
+    throw new Error('Invalid script file.');
   return save(window, name, extension, text);
 });
 
 const mcpPath = fileURLToPath(new URL('../mcp.mjs', import.meta.url));
 handle('mcp:path', () => mcpPath);
-const mcpConnection = createMcpConnection();
+function notifyAgentActivity(event) {
+  const windows = BrowserWindow.getAllWindows();
+  for (const window of windows) window.webContents.send('mcp:activity', event);
+  // Tool reads stay in the in-app feed; only events that need a person reach the OS when the app is in the background.
+  if (event.kind === 'tool' || !Notification.isSupported() || windows.some(window => window.isFocused())) return;
+  const note = new Notification({ title: 'Schema Studio', body: event.message });
+  note.on('click', () => {
+    const [window] = windows;
+    if (window?.isMinimized()) window.restore();
+    window?.show();
+    window?.focus();
+  });
+  note.show();
+}
+const mcpConnection = createMcpConnection({ onActivity: notifyAgentActivity });
 handle('mcp:status', () => mcpConnection.status());
+handle('mcp:activity', () => mcpConnection.listActivity());
 handle('mcp:set-active-draft', (_window, draft) => mcpConnection.setActiveDraft(draft));
 handle('mcp:start', () => mcpConnection.start());
 handle('mcp:close', () => mcpConnection.close());
 handle('mcp:list-imports', () => mcpConnection.listImports());
 handle('mcp:read-import', (_window, id) => mcpConnection.readImport(id));
 handle('mcp:remove-import', (_window, id) => mcpConnection.removeImport(id));
-handle('mcp:copy-config', (_window, client) => {
+handle('mcp:copy-config', (_window, client, kind = 'config') => {
   if (client === 'stdio') {
     clipboard.writeText(stdioConfig(mcpPath));
     return;
   }
   const connection = mcpConnection.status();
-  if (!connection) throw new Error('Start MCP before copying an HTTP configuration.');
-  clipboard.writeText(httpConfig(client, connection));
+  if (!connection) throw new Error('Start MCP before copying connection details.');
+  clipboard.writeText(copyText(client, kind, connection));
 });
-app.on('before-quit', () => { void mcpConnection.close(); });
+app.on('before-quit', () => {
+  void mcpConnection.close();
+});
 
 let sandboxProcess = null;
 handle('sandbox:query', (_window, source, preview, query) => {
@@ -147,5 +183,9 @@ handle('sandbox:query', (_window, source, preview, query) => {
 });
 
 void app.whenReady().then(createWindow);
-app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('activate', () => {
+  if (!BrowserWindow.getAllWindows().length) createWindow();
+});
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});

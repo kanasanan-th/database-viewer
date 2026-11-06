@@ -1,17 +1,23 @@
 import { seedStatements, sqlIdentifier } from './seed.mjs';
 
 export const dialects = {
-  postgresql: 'PostgreSQL', mysql: 'MySQL', sqlite: 'SQLite', mongodb: 'MongoDB',
+  postgresql: 'PostgreSQL',
+  mysql: 'MySQL',
+  sqlite: 'SQLite',
+  mongodb: 'MongoDB',
 };
 
 const types = {
-  postgresql: 'smallint integer int bigint serial bigserial boolean bool text varchar char numeric decimal real float double uuid json jsonb date time timestamp timestamptz bytea inet interval',
-  mysql: 'tinyint smallint mediumint int integer bigint boolean bool text tinytext mediumtext longtext varchar char decimal numeric float double json date time datetime timestamp blob binary varbinary',
-  sqlite: 'integer int bigint smallint text varchar char real double float numeric decimal boolean blob date datetime timestamp',
+  postgresql:
+    'smallint integer int bigint serial bigserial boolean bool text varchar char numeric decimal real float double uuid json jsonb date time timestamp timestamptz bytea inet interval',
+  mysql:
+    'tinyint smallint mediumint int integer bigint boolean bool text tinytext mediumtext longtext varchar char decimal numeric float double json date time datetime timestamp blob binary varbinary',
+  sqlite:
+    'integer int bigint smallint text varchar char real double float numeric decimal boolean blob date datetime timestamp',
   mongodb: 'objectId string bool int long double decimal date timestamp object array binData null regex',
 };
 export const fieldTypes = Object.fromEntries(
-  Object.entries(types).map(([dialect, values]) => [dialect, values.split(' ')]),
+  Object.entries(types).map(([dialect, values]) => [dialect, values.split(' ')])
 );
 export const mysqlCollations = {
   utf8mb4: ['utf8mb4_0900_ai_ci', 'utf8mb4_0900_as_cs', 'utf8mb4_unicode_ci', 'utf8mb4_general_ci', 'utf8mb4_bin'],
@@ -38,14 +44,18 @@ function parse(source, dialect) {
     const tokens = input.match(/"(?:\\.|[^"\\])*"|\S+/g);
     const [keyword, name] = tokens;
     if (!entity) {
-      if (!identifier.test(name ?? '') || name.length > 63) fail(line, 'Expected an identifier up to 63 ASCII characters.');
+      if (!identifier.test(name ?? '') || name.length > 63)
+        fail(line, 'Expected an identifier up to 63 ASCII characters.');
       if (keyword === 'database' && !database && !entities.length) {
         database = name;
         if (tokens.length > 2) {
           if (dialect !== 'mysql') fail(line, 'Database charset and collation are supported for MySQL.');
           const [, , charsetKeyword, charsetValue, collateKeyword, collationValue] = tokens;
-          if (charsetKeyword !== 'charset' || ![4, 6].includes(tokens.length) ||
-              (tokens.length === 6 && collateKeyword !== 'collate')) {
+          if (
+            charsetKeyword !== 'charset' ||
+            ![4, 6].includes(tokens.length) ||
+            (tokens.length === 6 && collateKeyword !== 'collate')
+          ) {
             fail(line, 'Use database NAME charset CHARSET [collate COLLATION].');
           }
           const charset = charsetValue.toLowerCase();
@@ -75,7 +85,8 @@ function parse(source, dialect) {
     const primary = input.match(/^primary\s+\(([^()]+)\)$/i);
     if (index || primary) {
       const columns = (index ? index[3] : primary[1]).split(',').map(value => value.trim());
-      if (columns.some(column => !identifier.test(column)) || new Set(columns).size !== columns.length) fail(line, 'Invalid or duplicate index/key field.');
+      if (columns.some(column => !identifier.test(column)) || new Set(columns).size !== columns.length)
+        fail(line, 'Invalid or duplicate index/key field.');
       if (index) {
         if (index[2].length > 63) fail(line, 'Index name exceeds 63 characters.');
         entity.indexes.push({ name: index[2], unique: Boolean(index[1]), columns, line });
@@ -87,16 +98,21 @@ function parse(source, dialect) {
     }
 
     const [fieldName, type, ...options] = tokens;
-    if (!identifier.test(fieldName) || fieldName.length > 63 || fieldName === '__proto__') fail(line, 'Invalid field name.');
-    if (entity.fields.some(field => field.name.toLowerCase() === fieldName.toLowerCase())) fail(line, 'Duplicate field ' + fieldName);
+    if (!identifier.test(fieldName) || fieldName.length > 63 || fieldName === '__proto__')
+      fail(line, 'Invalid field name.');
+    if (entity.fields.some(field => field.name.toLowerCase() === fieldName.toLowerCase()))
+      fail(line, 'Duplicate field ' + fieldName);
     const shape = type?.match(/^([a-z]+)(\((\d+)(?:,(\d+))?\))?(\[\])?$/i);
     const base = mongo ? shape?.[1] : shape?.[1].toLowerCase();
-    if (!shape || !fieldTypes[dialect].includes(base) ||
-        (shape[5] && dialect !== 'postgresql') ||
-        (shape[2] && !['varchar', 'char', 'numeric', 'decimal', 'binary', 'varbinary'].includes(base)) ||
-        (shape[4] && !['decimal', 'numeric'].includes(base)) ||
-        (shape[2] && (Number(shape[3]) < 1 || Number(shape[4]) > Number(shape[3]))) ||
-        (dialect === 'mysql' && ['varchar', 'varbinary'].includes(base) && !shape[2])) {
+    if (
+      !shape ||
+      !fieldTypes[dialect].includes(base) ||
+      (shape[5] && dialect !== 'postgresql') ||
+      (shape[2] && !['varchar', 'char', 'numeric', 'decimal', 'binary', 'varbinary'].includes(base)) ||
+      (shape[4] && !['decimal', 'numeric'].includes(base)) ||
+      (shape[2] && (Number(shape[3]) < 1 || Number(shape[4]) > Number(shape[3]))) ||
+      (dialect === 'mysql' && ['varchar', 'varbinary'].includes(base) && !shape[2])
+    ) {
       fail(line, 'Unsupported ' + dialects[dialect] + ' type: ' + (type ?? '(missing)'));
     }
 
@@ -124,10 +140,16 @@ function parse(source, dialect) {
         }
         try {
           const literal = JSON.parse(value);
-          if (typeof literal === 'object' && literal !== null || typeof literal === 'number' && !Number.isFinite(literal)) throw new Error();
+          if (
+            (typeof literal === 'object' && literal !== null) ||
+            (typeof literal === 'number' && !Number.isFinite(literal))
+          )
+            throw new Error();
           if (typeof literal === 'string' && /[\u0000-\u001f]/.test(literal)) throw new Error();
           field.default = { kind: 'literal', value: literal };
-        } catch { fail(line, 'Use a JSON string, number, boolean, null, or now as a default.'); }
+        } catch {
+          fail(line, 'Use a JSON string, number, boolean, null, or now as a default.');
+        }
       } else {
         fail(line, 'Unknown modifier ' + option);
       }
@@ -154,7 +176,8 @@ function validate(schema, dialect) {
     const indexNames = dialect === 'mysql' || mongo ? new Set() : names;
     for (const index of entity.indexes) {
       const name = index.name.toLowerCase();
-      if (indexNames.has(name) || dialect === 'mysql' && name === 'primary' || mongo && name === '_id_') fail(index.line, 'Duplicate or reserved index name ' + index.name);
+      if (indexNames.has(name) || (dialect === 'mysql' && name === 'primary') || (mongo && name === '_id_'))
+        fail(index.line, 'Duplicate or reserved index name ' + index.name);
       indexNames.add(name);
     }
     for (const key of [...entity.indexes, { columns: entity.primary, line: entity.line }]) {
@@ -172,9 +195,12 @@ function validate(schema, dialect) {
       const label = field.ref.entity + '.' + field.ref.field;
       if (!targetField) fail(field.line, 'Unknown reference ' + label);
       if (mongo) continue;
-      const unique = targetField.unique ||
-        target.primary.length === 1 && target.primary[0] === targetField.name ||
-        target.indexes.some(index => index.unique && index.columns.length === 1 && index.columns[0] === targetField.name);
+      const unique =
+        targetField.unique ||
+        (target.primary.length === 1 && target.primary[0] === targetField.name) ||
+        target.indexes.some(
+          index => index.unique && index.columns.length === 1 && index.columns[0] === targetField.name
+        );
       if (!unique) fail(field.line, 'Reference must point to a single-column unique key: ' + label);
     }
   }
@@ -191,7 +217,8 @@ export function sqlColumn(field, entity, dialect) {
     let literal = String(value).toUpperCase();
     if (typeof value === 'string') {
       const escaped = value.replaceAll("'", "''");
-      literal = "'" + (dialect === 'mysql' || dialect === 'postgresql' ? escaped.replaceAll('\\', '\\\\') : escaped) + "'";
+      literal =
+        "'" + (dialect === 'mysql' || dialect === 'postgresql' ? escaped.replaceAll('\\', '\\\\') : escaped) + "'";
       if (dialect === 'postgresql') literal = 'E' + literal;
     }
     definition += ' DEFAULT ' + (kind === 'now' ? 'CURRENT_TIMESTAMP' : literal);
@@ -210,15 +237,25 @@ export function sqlStatements(schema, dialect, includeDatabase = true, seeds = [
     const { charset, collation } = schema.databaseOptions ?? {};
     const options = (charset ? ' CHARACTER SET ' + charset : '') + (collation ? ' COLLATE ' + collation : '');
     lines.push('CREATE DATABASE ' + id(schema.database) + options + ';', 'USE ' + id(schema.database) + ';');
-  }
-  else if (includeDatabase) lines.push('-- Run with psql while connected to a maintenance database.', 'CREATE DATABASE ' + id(schema.database) + ';', '\\connect ' + id(schema.database));
+  } else if (includeDatabase)
+    lines.push(
+      '-- Run with psql while connected to a maintenance database.',
+      'CREATE DATABASE ' + id(schema.database) + ';',
+      '\\connect ' + id(schema.database)
+    );
   const alters = [];
   const indexes = [];
   for (const entity of schema.entities) {
     const definitions = entity.fields.map(field => {
       let definition = sqlColumn(field, entity, dialect);
       if (field.ref) {
-        const clause = 'FOREIGN KEY ' + columns([field.name]) + ' REFERENCES ' + id(field.ref.entity) + ' ' + columns([field.ref.field]) +
+        const clause =
+          'FOREIGN KEY ' +
+          columns([field.name]) +
+          ' REFERENCES ' +
+          id(field.ref.entity) +
+          ' ' +
+          columns([field.ref.field]) +
           (field.ondelete ? ' ON DELETE ' + field.ondelete : '');
         if (!sqlite) alters.push('ALTER TABLE ' + id(entity.name) + ' ADD ' + clause + ';');
         if (sqlite) definition += ' ' + clause.slice(clause.indexOf('REFERENCES'));
@@ -226,17 +263,50 @@ export function sqlStatements(schema, dialect, includeDatabase = true, seeds = [
       return definition;
     });
     if (entity.primary.length) definitions.push('PRIMARY KEY ' + columns(entity.primary));
-    lines.push('', 'CREATE TABLE ' + id(entity.name) + ' (\n  ' + definitions.join(',\n  ') + '\n)' + (mysql ? ' ENGINE=InnoDB' : '') + ';');
+    lines.push(
+      '',
+      'CREATE TABLE ' +
+        id(entity.name) +
+        ' (\n  ' +
+        definitions.join(',\n  ') +
+        '\n)' +
+        (mysql ? ' ENGINE=InnoDB' : '') +
+        ';'
+    );
     for (const index of entity.indexes) {
-      indexes.push('CREATE ' + (index.unique ? 'UNIQUE ' : '') + 'INDEX ' + id(index.name) + ' ON ' + id(entity.name) + ' ' + columns(index.columns) + ';');
+      indexes.push(
+        'CREATE ' +
+          (index.unique ? 'UNIQUE ' : '') +
+          'INDEX ' +
+          id(index.name) +
+          ' ON ' +
+          id(entity.name) +
+          ' ' +
+          columns(index.columns) +
+          ';'
+      );
     }
   }
-  const data = seeds.length ? ['', '-- Draft preview rows', ...(sqlite ? ['BEGIN;', 'PRAGMA defer_foreign_keys = ON;', ...seeds, 'COMMIT;'] : seeds)] : [];
-  return [...lines, ...(indexes.length ? ['', ...indexes] : []), ...data, ...(alters.length ? ['', ...alters] : [])].join('\n') + '\n';
+  const data = seeds.length
+    ? [
+        '',
+        '-- Draft preview rows',
+        ...(sqlite ? ['BEGIN;', 'PRAGMA defer_foreign_keys = ON;', ...seeds, 'COMMIT;'] : seeds),
+      ]
+    : [];
+  return (
+    [...lines, ...(indexes.length ? ['', ...indexes] : []), ...data, ...(alters.length ? ['', ...alters] : [])].join(
+      '\n'
+    ) + '\n'
+  );
 }
 
 function mongoScript(schema) {
-  const lines = ['// Schema Studio | MongoDB (mongosh)', '// References are diagram metadata.', 'const target = db.getSiblingDB(' + JSON.stringify(schema.database) + ');'];
+  const lines = [
+    '// Schema Studio | MongoDB (mongosh)',
+    '// References are diagram metadata.',
+    'const target = db.getSiblingDB(' + JSON.stringify(schema.database) + ');',
+  ];
   for (const entity of schema.entities) {
     const required = entity.fields.filter(field => field.required || field.pk).map(field => field.name);
     const validator = {
@@ -248,13 +318,21 @@ function mongoScript(schema) {
     };
     const name = JSON.stringify(entity.name);
     lines.push('', 'target.createCollection(' + name + ', ' + JSON.stringify({ validator }, null, 2) + ');');
-    const indexes = [...entity.indexes, ...entity.fields.filter(field => field.unique && field.name !== '_id').map(field => ({
-      unique: true, columns: [field.name],
-    }))];
+    const indexes = [
+      ...entity.indexes,
+      ...entity.fields
+        .filter(field => field.unique && field.name !== '_id')
+        .map(field => ({
+          unique: true,
+          columns: [field.name],
+        })),
+    ];
     for (const index of indexes) {
       const keys = Object.fromEntries(index.columns.map(column => [column, 1]));
       const options = { ...(index.name ? { name: index.name } : {}), ...(index.unique ? { unique: true } : {}) };
-      lines.push('target.getCollection(' + name + ').createIndex(' + JSON.stringify(keys) + ', ' + JSON.stringify(options) + ');');
+      lines.push(
+        'target.getCollection(' + name + ').createIndex(' + JSON.stringify(keys) + ', ' + JSON.stringify(options) + ');'
+      );
     }
   }
   return lines.join('\n') + '\n';
@@ -266,7 +344,8 @@ export function compile(source, dialect, preview) {
   validate(schema, dialect);
   const mongo = dialect === 'mongodb';
   const seeds = preview ? seedStatements(schema, dialect, preview) : [];
-  const script = mongo ? mongoScript(schema) + (seeds.length ? '\n// Draft preview rows\n' + seeds.join('\n') + '\n' : '') :
-    sqlStatements(schema, dialect, true, seeds);
+  const script = mongo
+    ? mongoScript(schema) + (seeds.length ? '\n// Draft preview rows\n' + seeds.join('\n') + '\n' : '')
+    : sqlStatements(schema, dialect, true, seeds);
   return { schema, script, extension: mongo ? 'js' : 'sql' };
 }

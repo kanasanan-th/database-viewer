@@ -43,6 +43,12 @@
       "skillPath": "skills/reverse-any-video/SKILL.md",
       "computedHash": "f990cabc6e2461c8926b25ac7368d0984cbacc803ef64041f270dd119ba3a53b"
     },
+    "security-audit": {
+      "source": "cloudflare/security-audit-skill",
+      "sourceType": "github",
+      "skillPath": "skills/security-audit/SKILL.md",
+      "computedHash": "e6b2e317de75da97e9de18d842982994803f3a67a4a6d8154a82323dc3de8528"
+    },
     "slideshow": {
       "source": "heygen-com/hyperframes",
       "sourceType": "github",
